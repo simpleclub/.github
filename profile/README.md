@@ -1,4 +1,4 @@
-![sc_primary-logo_rgb_positive](https://user-images.githubusercontent.com/19204050/133337528-4d231761-ed2a-467f-bf65-564969641386.png)
+![simpleclub LinkedIn Banner - Personal Profiles - 2022 - 2](https://user-images.githubusercontent.com/10195482/152706036-5ba0194b-a5b0-4139-b45f-d49cf323d29f.jpg)
 
 ---
 
