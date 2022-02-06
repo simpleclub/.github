@@ -2,12 +2,17 @@
 
 ---
 
-simpleclub is Germany's most popular digital learning platform. We offer a personalized learning experience to students, powered by the best content. For 1M+ users. 
+simpleclub is Germany's #1 learning app for school & vocational training with 2M+ users.
 
 Loved by both students and parents, simpleclub makes it easy and fun for students and learners to understand anything related to any subject at school with a stress-free experience. At simpleclub we are all creators and we are on a mission to disrupt the traditional school-based learning system by creating and giving access to great learning content to every student.  
-Check us out on [LinkedIn](https://de.linkedin.com/company/simpleclub), [Instagram](https://www.instagram.com/simpleclub), [Twitter](https://twitter.com/simpleclub) and [TikTok](https://www.tiktok.com/@simpleclub.de).
 
-Created in 2015 by back then students, simpleclub has grown to over 1M users and going. In 2020, simpleclub secured a seed round from HV Capital to accelerate growth. 
+simpleclub has been voted as Top-Startup Employer in 2021 by Statista & Business Punk, and got #1 in the Education category.
+
+Created in 2015, simpleclub has grown to over 2M users and is backed by rockstar investors like HV Capital and the founders of FlixBus, Schüttflix, sennder, CoachHub and eduki.
+
+We are in the process of expanding our product internationally to bring our mission of making learning accessible worldwide.
+
+Check us out on [LinkedIn](https://de.linkedin.com/company/simpleclub), [Instagram](https://www.instagram.com/simpleclub), [Twitter](https://twitter.com/simpleclub) and [TikTok](https://www.tiktok.com/@simpleclub.de).
 
 --- 
 
