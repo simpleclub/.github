@@ -12,7 +12,7 @@ Created in 2015, simpleclub has grown to over 2M users and is backed by rockstar
 
 We are in the process of expanding our product internationally to bring our mission of making learning accessible worldwide.
 
-Check us out on [LinkedIn](https://de.linkedin.com/company/simpleclub), [Instagram](https://www.instagram.com/simpleclub), [Twitter](https://twitter.com/simpleclub) and [TikTok](https://www.tiktok.com/@simpleclub.de).
+Check us out on [LinkedIn](https://de.linkedin.com/company/simpleclub), [Instagram](https://www.instagram.com/simpleclub), [Twitter](https://twitter.com/simpleclub) and [TikTok](https://www.tiktok.com/@simpleclub).
 
 --- 
 
