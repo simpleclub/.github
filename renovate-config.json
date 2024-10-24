@@ -15,15 +15,6 @@
     ":widenPeerDependencies",
     "helpers:disableTypesNodeMajor"
   ],
-  "hostRules": [
-    {
-      "matchHost": "https://npm.pkg.github.com/",
-      "hostType": "npm",
-      "encrypted": {
-        "token": "wcFMA/xDdHCJBTolAQ//WdybiY+E82jSgAO2Ug5WtjA5BE9kaa/SjO8YBAPL0VB2QtpJsuoUQY3w4BbSYQAFCu9ZAjBnRxby370PLDYCFe9vOcnnZvNcq5r1mAA8ibjLbxlfsaHfNsMCyI4pw8DIM1AnWpswwb7yVArh4zb47kQFp/8/hrsWl1ezjjFe2KFb82FRLrxiwG67a5hLWdESyO30M16Uj3tOYFVu7+vanHwKaoX2gIxwtdQ0cWv/tBd3kWyEzn2m5P87EWdc9Is3cchPH0FXAsLj2KnlHAAzwU9HSkpttf2gKWsnV1P0eQE5fnQu+y7OJDdaT00z9Z7qVqzBnHt0bvy4r/gr8CZoqF+qZWekTdtLSsp9B61qJo/eJp5QFTQgpY3zoZm/1QKy7hWludQUpXm4mNrxvxIb+mVyzaCGMR8REe3mVBk3jM0KcCqHukdtAROT9c69prNwFzqmNSh5ZXbTRKs/+DKhjE1QzOaxEUDma5lk530hyZgbBi4JGIk41ynFcpmS7Kry3yPZl5KbiLFZ1OI8q2FNJSOLPtT7y2awBu/K+9PjlGymFR4gmp6w0SHbO3Kos41sfKb3p90q0K1FQbBOpKsdfWtvYp0QTv5As4RyoVa8QUOQ8jLXGBzrX+5iPDH720ZWKjPUs9M5E0xkXf7gR0FAcEfZxPaDbQZF3z/zofDCy/LSeQEb+aKMNTIHajcw0EMrL+tFeTI61GO7rtqCbCli3Zj+VHkjC+pp9ZzoscILpwIRCBqIgFGVds+a4QQSIBFe7V0zmOxJIubVqTB3pEJ1FoKwvWUpwBSNbMMxR+1VKjtoofXrCbZhVWp0txhg4pbfacKanrhEQ9RMJ5Q"
-      }
-    }
-  ],
   "npmrc": "@simpleclub:registry=https://npm.pkg.github.com/",
   "automergeStrategy": "squash",
   "configMigration": true,
