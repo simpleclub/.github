@@ -19,6 +19,7 @@
   "automergeStrategy": "squash",
   "configMigration": true,
   "postUpdateOptions": ["yarnDedupeHighest"],
+  "addLabels": ["dependencies"],
   "vulnerabilityAlerts": {
     "enabled": true,
     "addLabels": ["security"]
