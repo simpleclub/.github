@@ -1,0 +1,19 @@
+name: Auto approve
+
+on:
+  workflow_call:
+    inputs:
+      pull-request-number:
+        required: true
+        type: string
+jobs:
+  auto-approve:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    if: github.actor == 'renovate[bot]' || github.actor == 'release-please[bot]'
+    steps:
+      - uses: hmarr/auto-approve-action@8f929096a962e83ccdfa8afcf855f39f12d4dac7
+        with:
+          pull-request-number: ${{ inputs.pull-request-number }}
+          review-message: 'Approving auto-generated PR'
