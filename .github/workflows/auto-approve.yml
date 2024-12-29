@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
-    if: github.actor == 'simpleclub-bot'
+    if: github.actor == 'simpleclub-bot' || github.actor == 'IchordeDionysos'
     steps:
       - name: Get release-please changed files
         id: changed-files
