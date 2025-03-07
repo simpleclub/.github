@@ -1,0 +1,82 @@
+name: Auto approve
+
+on:
+  workflow_call:
+    inputs:
+      pull-request-number:
+        required: true
+        type: string
+jobs:
+  auto-approve-renovate:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    if: github.actor == 'renovate[bot]'
+    steps:
+      - uses: hmarr/auto-approve-action@8f929096a962e83ccdfa8afcf855f39f12d4dac7
+        with:
+          pull-request-number: ${{ inputs.pull-request-number }}
+          review-message: 'Approving auto-generated PR'
+  auto-approve-release-please:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: read
+    if: github.actor == 'simpleclub-bot'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2 # required to compare the two last commits for changes
+      - name: Get release-please changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v45
+        with:
+          files: |
+            .github/release-please-manifest.json
+            **/package.json
+            **/CHANGELOG.md
+      - uses: GrantBirki/git-diff-action@6679c6802dd361f930f603c0a967f0e9f074630b
+        id: git-diff-action
+        with:
+          json_diff_file_output: diff.json
+      - uses: actions/github-script@v7
+        id: check-only-dependency-updates
+        with:
+          script: |
+            const data = ${{steps.git-diff-action.outputs.json-diff}};
+            const checkOnlyThreeFilesChange = data.files.length === 3;
+            
+            const packageJsonFile = data.files.find(file => file.path.endsWith('package.json'));
+            console.log(JSON.stringify(packageJsonFile));
+            const packageJsonChunk = packageJsonFile.chunks[0];
+            const packageJsonChanges = packageJsonChunk.changes.filter(change => change.type !== 'UnchangedLine');
+            const removedVersion = packageJsonChanges.filter(change => change.type === 'DeletedLine')[0]
+              .content.match(/^\s*"version":\s*"(\d+)\.(\d+)\.(\d+)",?\s*$/);
+            const addedVersion = packageJsonChanges.filter(change => change.type === 'AddedLine')[0]
+              .content.match(/^\s*"version":\s*"(\d+)\.(\d+)\.(\d+)",?\s*$/);
+            const onlyUpdatesMinorPackageVersions = addedVersion !== null && removedVersion !== null &&
+              removedVersion[1] === addedVersion[1] && (
+                removedVersion[2] !== addedVersion[2] || removedVersion[3] !== addedVersion[3]
+              );
+            const checkPackageJsonChanges = packageJsonFile.chunks.length === 1 && packageJsonChanges.length === 2 &&
+              onlyUpdatesMinorPackageVersions;
+
+            const changelogFile = data.files.find(file => file.path.endsWith('CHANGELOG.md'));
+            console.log(JSON.stringify(changelogFile));
+            const changelogChunk = changelogFile.chunks[0];
+            const changelogChanges = packageJsonChunk.changes.filter(change => change.type !== 'UnchangedLine');
+            const changelogAllChanges = changelogChanges.filter(change => change.content.match(/^\* /));
+            const changelogDependencyUpdates = changelogChanges.filter(change => change.content.match(/^\* \*\*deps:\*\* (update dependency|lock file maintenance) /));
+            const checkOnlyHasDependencyUpdates = changelogAllChanges.length === changelogDependencyUpdates.length;
+            const checkChangeLogChanges = changelogFile.chunks.length === 1 &&
+              checkOnlyHasDependencyUpdates;
+
+            return checkOnlyThreeFilesChange && checkPackageJsonChanges && checkChangeLogChanges;
+              
+          result-encoding: string
+      - uses: hmarr/auto-approve-action@8f929096a962e83ccdfa8afcf855f39f12d4dac7
+        # Only approve when the modified files have been changed
+        if: steps.changed-files.outputs.only_changed == 'true' && steps.check-only-dependency-updates.outputs.result == 'true'
+        with:
+          pull-request-number: ${{ inputs.pull-request-number }}
+          review-message: 'Approving auto-generated PR'
