@@ -32,8 +32,8 @@ jobs:
         uses: tj-actions/changed-files@v45
         with:
           files: |
-            /.github/workflows/auto-approve.yml
-            /.github/release-please-manifest.json
+            .github/workflows/auto-approve.yml
+            .github/release-please-manifest.json
             **/package.json
             **/CHANGELOG.md
       - uses: GrantBirki/git-diff-action@6679c6802dd361f930f603c0a967f0e9f074630b
