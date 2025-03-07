@@ -72,7 +72,7 @@ jobs:
             const checkChangeLogChanges = changelogFile.chunks.length === 1 &&
               checkOnlyHasDependencyUpdates;
 
-            return checkOnlyThreeFilesChange && checkPackageJson && checkChangeLogChanges;
+            return checkOnlyThreeFilesChange && checkPackageJsonChanges && checkChangeLogChanges;
               
           result-encoding: string
       - uses: hmarr/auto-approve-action@8f929096a962e83ccdfa8afcf855f39f12d4dac7
