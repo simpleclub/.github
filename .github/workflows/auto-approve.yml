@@ -46,7 +46,7 @@ jobs:
             const data = ${{steps.git-diff-action.outputs.json-diff}};
             const checkOnlyThreeFilesChange = data.files.length === 3;
             
-            const packageJsonFile = data.files.find(file => file.path === 'package.json');
+            const packageJsonFile = data.files.find(file => file.path.endsWith('package.json'));
             const packageJsonChunk = packageJsonFile.chunks[0];
             const packageJsonChanges = packageJsonChunk.changes.filter(change => change.type !== 'UnchangedLine');
             const removedVersion = packageJsonChanges.filter(change => change.type === 'RemovedLine')[0]
@@ -60,7 +60,7 @@ jobs:
               addedVersion !== null && removedVersion !== null &&
               didNotUpgradeMajorVersion;
 
-            const changelogFile = data.files.find(file => file.path === 'CHANGELOG.md');
+            const changelogFile = data.files.find(file => file.path.endsWith('CHANGELOG.md'));
             const changelogChunk = changelogFile.chunks[0];
             const changelogChanges = packageJsonChunk.changes.filter(change => change.type !== 'UnchangedLine');
             const changelogAllChanges = changelogChanges.filter(change => change.content.match(/^\* /));
