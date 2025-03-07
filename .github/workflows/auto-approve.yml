@@ -39,7 +39,6 @@ jobs:
         id: git-diff-action
         with:
           json_diff_file_output: diff.json
-          file_output_only: "true"
       - uses: actions/github-script@v7
         id: check-only-dependency-updates
         with:
