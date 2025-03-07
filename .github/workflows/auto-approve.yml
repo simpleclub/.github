@@ -31,9 +31,47 @@ jobs:
             /.github/release-please-manifest.json
             **/package.json
             **/CHANGELOG.md
+      - uses: GrantBirki/git-diff-action@vX.X.X
+        id: git-diff-action
+        with:
+          json_diff_file_output: diff.json
+          file_output_only: "true"
+      - uses: actions/github-script@v7
+        id: check-only-dependency-updates
+        with:
+          script: |
+            const data = require('${{steps.git-diff-action.outputs.json-diff-path}}');
+            const checkOnlyThreeFilesChange = data.files.length === 3;
+            
+            const packageJsonFile = data.files.find(file => file.path === 'package.json');
+            const packageJsonChunk = packageJsonFile.chunks[0];
+            const packageJsonChanges = packageJsonChunk.changes.filter(change => change.type !== 'UnchangedLine');
+            const removedVersion = packageJsonChanges.filter(change => change.type === 'RemovedLine')[0]
+              .content.match(/^\s*"version":\s*"(\d+)\.(\d+)\.(\d+)",?\s*$/);
+            const addedVersion = packageJsonChanges.filter(change => change.type === 'AddedLine')[0]
+              .content.match(/^\s*"version":\s*"(\d+)\.(\d+)\.(\d+)",?\s*$/);
+            const didNotUpgradeMajorVersion = removedVersion[1] === addedVersion[1] && (
+              removedVersion[2] !== addedVersion[2] || removedVersion[3] !== addedVersion[3]
+            );
+            const checkPackageJsonChanges = packageJsonFile.chunks.length === 1 && packageJsonChanges.length === 2 &&
+              addedVersion !== null && removedVersion !== null &&
+              didNotUpgradeMajorVersion;
+
+            const changelogFile = data.files.find(file => file.path === 'CHANGELOG.md');
+            const changelogChunk = changelogFile.chunks[0];
+            const changelogChanges = packageJsonChunk.changes.filter(change => change.type !== 'UnchangedLine');
+            const changelogAllChanges = changelogChanges.filter(change => change.content.match(/^\* /);
+            const changelogDependencyUpdates = changelogChanges.filter(change => change.content.match(/^\* \*\*deps:\*\* (update dependency|lock file maintenance) /);
+            const checkOnlyHasDependencyUpdates = changelogAllChanges.length === changelogDependencyUpdates.length;
+            const checkChangeLogChanges = changelogFile.chunks.length === 1 &&
+              checkOnlyHasDependencyUpdates;
+
+            return checkOnlyThreeFilesChange && checkPackageJson && checkChangeLogChanges;
+              
+          result-encoding: string
       - uses: hmarr/auto-approve-action@8f929096a962e83ccdfa8afcf855f39f12d4dac7
         # Only approve when the modified files have been changed
-        if: steps.changed-files.outputs.only_changed == 'true'
+        if: steps.changed-files.outputs.only_changed == 'true' && steps.check-only-dependency-updates.outputs.result == 'true'
         with:
           pull-request-number: ${{ inputs.pull-request-number }}
           review-message: 'Approving auto-generated PR'
