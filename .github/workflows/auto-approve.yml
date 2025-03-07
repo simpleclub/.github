@@ -22,7 +22,7 @@ jobs:
     permissions:
       pull-requests: write
       contents: read
-    if: github.actor == 'simpleclub-bot' || github.actor == 'IchordeDionysos'
+    if: github.actor == 'simpleclub-bot'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -32,7 +32,6 @@ jobs:
         uses: tj-actions/changed-files@v45
         with:
           files: |
-            .github/workflows/auto-approve.yml
             .github/release-please-manifest.json
             **/package.json
             **/CHANGELOG.md
