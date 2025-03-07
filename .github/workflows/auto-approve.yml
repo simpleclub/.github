@@ -44,7 +44,7 @@ jobs:
         with:
           script: |
             const data = ${{steps.git-diff-action.outputs.json-diff}};
-            const checkOnlyThreeFilesChange = data.files.length === 4;
+            const checkOnlyThreeFilesChange = data.files.length === 3;
             
             const packageJsonFile = data.files.find(file => file.path.endsWith('package.json'));
             console.log(JSON.stringify(packageJsonFile));
