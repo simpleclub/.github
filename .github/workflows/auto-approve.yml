@@ -21,6 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
+      contents: read
     if: github.actor == 'simpleclub-bot' || github.actor == 'IchordeDionysos'
     steps:
       - uses: actions/checkout@v4
