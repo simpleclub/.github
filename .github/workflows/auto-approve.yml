@@ -54,12 +54,12 @@ jobs:
               .content.match(/^\s*"version":\s*"(\d+)\.(\d+)\.(\d+)",?\s*$/);
             const addedVersion = packageJsonChanges.filter(change => change.type === 'AddedLine')[0]
               .content.match(/^\s*"version":\s*"(\d+)\.(\d+)\.(\d+)",?\s*$/);
-            const didNotUpgradeMajorVersion = removedVersion[1] === addedVersion[1] && (
-              removedVersion[2] !== addedVersion[2] || removedVersion[3] !== addedVersion[3]
-            );
+            const onlyUpdatesMinorPackageVersions = addedVersion !== null && removedVersion !== null &&
+              removedVersion[1] === addedVersion[1] && (
+                removedVersion[2] !== addedVersion[2] || removedVersion[3] !== addedVersion[3]
+              );
             const checkPackageJsonChanges = packageJsonFile.chunks.length === 1 && packageJsonChanges.length === 2 &&
-              addedVersion !== null && removedVersion !== null &&
-              didNotUpgradeMajorVersion;
+              onlyUpdatesMinorPackageVersions;
 
             const changelogFile = data.files.find(file => file.path.endsWith('CHANGELOG.md'));
             console.log(JSON.stringify(changelogFile));
