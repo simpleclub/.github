@@ -50,7 +50,7 @@ jobs:
             console.log(JSON.stringify(packageJsonFile));
             const packageJsonChunk = packageJsonFile.chunks[0];
             const packageJsonChanges = packageJsonChunk.changes.filter(change => change.type !== 'UnchangedLine');
-            const removedVersion = packageJsonChanges.filter(change => change.type === 'RemovedLine')[0]
+            const removedVersion = packageJsonChanges.filter(change => change.type === 'DeletedLine')[0]
               .content.match(/^\s*"version":\s*"(\d+)\.(\d+)\.(\d+)",?\s*$/);
             const addedVersion = packageJsonChanges.filter(change => change.type === 'AddedLine')[0]
               .content.match(/^\s*"version":\s*"(\d+)\.(\d+)\.(\d+)",?\s*$/);
