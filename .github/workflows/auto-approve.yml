@@ -43,7 +43,7 @@ jobs:
         id: check-only-dependency-updates
         with:
           script: |
-            const data = JSON.parse('${{steps.git-diff-action.outputs.json-diff}}');
+            const data = ${{steps.git-diff-action.outputs.json-diff}};
             const checkOnlyThreeFilesChange = data.files.length === 3;
             
             const packageJsonFile = data.files.find(file => file.path === 'package.json');
