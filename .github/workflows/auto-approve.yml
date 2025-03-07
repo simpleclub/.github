@@ -64,8 +64,8 @@ jobs:
             const changelogFile = data.files.find(file => file.path === 'CHANGELOG.md');
             const changelogChunk = changelogFile.chunks[0];
             const changelogChanges = packageJsonChunk.changes.filter(change => change.type !== 'UnchangedLine');
-            const changelogAllChanges = changelogChanges.filter(change => change.content.match(/^\* /);
-            const changelogDependencyUpdates = changelogChanges.filter(change => change.content.match(/^\* \*\*deps:\*\* (update dependency|lock file maintenance) /);
+            const changelogAllChanges = changelogChanges.filter(change => change.content.match(/^\* /));
+            const changelogDependencyUpdates = changelogChanges.filter(change => change.content.match(/^\* \*\*deps:\*\* (update dependency|lock file maintenance) /));
             const checkOnlyHasDependencyUpdates = changelogAllChanges.length === changelogDependencyUpdates.length;
             const checkChangeLogChanges = changelogFile.chunks.length === 1 &&
               checkOnlyHasDependencyUpdates;
