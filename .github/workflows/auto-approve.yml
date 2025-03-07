@@ -32,6 +32,7 @@ jobs:
         uses: tj-actions/changed-files@v45
         with:
           files: |
+            /.github/workflows/auto-approve.yml
             /.github/release-please-manifest.json
             **/package.json
             **/CHANGELOG.md
@@ -44,7 +45,7 @@ jobs:
         with:
           script: |
             const data = ${{steps.git-diff-action.outputs.json-diff}};
-            const checkOnlyThreeFilesChange = data.files.length === 3;
+            const checkOnlyThreeFilesChange = data.files.length === 4;
             
             const packageJsonFile = data.files.find(file => file.path.endsWith('package.json'));
             console.log(JSON.stringify(packageJsonFile));
