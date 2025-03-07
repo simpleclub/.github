@@ -23,6 +23,9 @@ jobs:
       pull-requests: write
     if: github.actor == 'simpleclub-bot' || github.actor == 'IchordeDionysos'
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2 # needed to checkout all branches for this Action to work
       - name: Get release-please changed files
         id: changed-files
         uses: tj-actions/changed-files@v45
