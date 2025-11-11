@@ -26,7 +26,7 @@ jobs:
           # Jira issues are provided optionally, though specified here to ensure in the subject pattern 
           # that they aren't included, in the subject pattern.
           # Expected PR title: chore(learning-plan): Updates dependencies (SC-1234, AI-2, PT-1)
-          headerPattern: '^(\w*)(?:\(([\w$.\-*/ ]*)\))?: (.*) (?:\(((?:SC|AI|PT)-\d+(?:, )?)+\))?$'
+          headerPattern: '^(\w*)(?:\(([\w$.\-*/ ]*)\))?: (.*)(?: \(((?:SC|AI|PT)-\d+(?:, )?)+\))?$'
           headerPatternCorrespondence: type, scope, subject, jiraIssues
           # If the PR only contains a single commit, the action will validate that
           # it matches the configured pattern.
