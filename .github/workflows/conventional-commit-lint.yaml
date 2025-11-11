@@ -6,7 +6,7 @@ on:
 
 jobs:
   lint:
-    name: Validate commit 
+    name: Validate PR title
     runs-on: ubuntu-latest
     permissions:
       pull-requests: read
