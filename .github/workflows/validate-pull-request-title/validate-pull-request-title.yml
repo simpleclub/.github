@@ -17,6 +17,7 @@ jobs:
         uses: denoland/setup-deno@v2
         with:
           deno-version: lts
+          cache: true
 
       - name: Validate PR title
         run: deno run ./.github/workflows/validate-pull-request-title/validate-pull-request-title.js "${{ github.event.pull_request.title }}" >> $GITHUB_STEP_SUMMARY
