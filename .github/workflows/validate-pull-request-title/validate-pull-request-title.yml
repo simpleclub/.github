@@ -1,0 +1,23 @@
+name: conventionalcommits.org
+
+on:
+  pull_request:
+    types: ["opened", "edited", "reopened", "synchronize"]
+
+jobs:
+  lint:
+    name: Validate PR title
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: lts
+          cache: true
+
+      - name: Validate PR title
+        run: deno run ./.github/workflows/validate-pull-request-title/validate-pull-request-title.js "${{ github.event.pull_request.title }}" >> $GITHUB_STEP_SUMMARY
