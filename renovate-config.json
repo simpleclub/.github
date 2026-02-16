@@ -7,7 +7,6 @@
     ":semanticCommitScope(deps)",
     ":combinePatchMinorReleases",
     ":disableDependencyDashboard",
-    ":maintainLockFilesMonthly",
     ":label(dependencies)",
     ":prHourlyLimit2",
     ":prConcurrentLimit10",
@@ -23,6 +22,10 @@
   "vulnerabilityAlerts": {
     "enabled": true,
     "addLabels": ["security"]
+  },
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 3am on Monday every 2 weeks"]
   },
   "packageRules": [
     {
