@@ -1,0 +1,612 @@
+name: 'Agentic CLI Runner'
+description: 'Sets up and runs OpenCode in non-interactive mode with consistent configuration and error handling. Provider-agnostic alternative to gemini-cli-runner.'
+author: 'Kumpel AI Team'
+
+inputs:
+  prompt:
+    description: 'The prompt to send to the agent'
+    required: true
+  agent_api_key:
+    description: 'API key for the model provider (applied to all known provider env vars; only the enabled provider uses it)'
+    required: true
+  agent_model:
+    description: 'Fully qualified provider/model string (e.g., google/gemini-2.5-flash, anthropic/claude-sonnet-4)'
+    required: true
+  debug:
+    description: 'Enable debug mode (verbose logging)'
+    required: false
+    default: 'false'
+  max_attempts:
+    description: 'Maximum number of attempts if expected files are not created'
+    required: false
+    default: '3'
+  working_directory:
+    description: 'Working directory to run commands in'
+    required: false
+    default: '.'
+  git_user_name:
+    description: 'Git user name for commits'
+    required: false
+    default: 'Kumpel AI'
+  git_user_email:
+    description: 'Git user email for commits'
+    required: false
+    default: 'kumpel-ai@users.noreply.github.com'
+  opencode_version:
+    description: 'opencode-ai npm package version to install'
+    required: false
+    default: '1.2.6'
+  expected_files:
+    description: 'JSON array of expected metadata file names (without .ai-metadata/ prefix, e.g., ["qa-response.md", "run-summary.json"])'
+    required: false
+    default: '["run-summary.json"]'
+
+outputs:
+  changed:
+    description: 'Whether any changes were made'
+    value: ${{ steps.set-outputs.outputs.changed }}
+  attempts:
+    description: 'Number of attempts made'
+    value: ${{ steps.set-outputs.outputs.attempts }}
+  metadata:
+    description: 'All extracted metadata as JSON string (workflow-specific content)'
+    value: ${{ steps.set-outputs.outputs.metadata }}
+  job_duration_seconds:
+    description: 'Total job duration in seconds (from composite action start to finish)'
+    value: ${{ steps.set-job-duration.outputs.job_duration_seconds }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Git to ignore AI metadata artifacts
+      shell: bash
+      working-directory: ${{ inputs.working_directory }}
+      run: |
+        echo "Setting up Git to ignore AI metadata workflow artifacts..."
+        mkdir -p .ai-metadata
+        touch .ai-metadata/.gitkeep
+        git add .ai-metadata/
+        git update-index --skip-worktree .ai-metadata/.gitkeep
+        echo "✅ Git configured to ignore AI metadata workflow artifacts"
+
+    - name: Record composite action start time
+      id: record-start
+      shell: bash
+      run: echo "COMPOSITE_START_TIME=$(date +%s)" >> $GITHUB_ENV
+
+    - name: Summarize configuration
+      shell: bash
+      run: |
+        {
+          echo "## Agentic CLI Configuration";
+          echo "";
+          echo "| Setting | Value |";
+          echo "|---------|-------|";
+          echo "| Model | ${{ inputs.agent_model }} |";
+          echo "| Debug Mode | ${{ inputs.debug }} |";
+          echo "| Max Attempts | ${{ inputs.max_attempts }} |";
+          echo "| OpenCode Version | ${{ inputs.opencode_version }} |";
+          echo "";
+        } >> $GITHUB_STEP_SUMMARY
+
+    - name: Configure Git User
+      shell: bash
+      run: |
+        git config --global user.name "${{ inputs.git_user_name }}"
+        git config --global user.email "${{ inputs.git_user_email }}"
+
+    - name: Install OpenCode
+      shell: bash
+      run: |
+        echo "Installing opencode-ai@${{ inputs.opencode_version }}..."
+        npm install -g opencode-ai@${{ inputs.opencode_version }}
+        echo "✅ OpenCode installed: $(opencode --version)"
+
+    - name: Configure OpenCode for CI
+      id: configure-opencode
+      shell: bash
+      working-directory: ${{ inputs.working_directory }}
+      env:
+        AGENT_MODEL: ${{ inputs.agent_model }}
+      run: |
+        set -euo pipefail
+
+        # Extract provider from the fully-qualified model string (e.g., "google" from "google/gemini-2.5-flash")
+        PROVIDER=$(echo "$AGENT_MODEL" | cut -d'/' -f1)
+        echo "Detected provider: $PROVIDER"
+
+        # Build inline OpenCode config via OPENCODE_CONFIG_CONTENT (highest precedence, merged with project config).
+        # - Only enable the target provider to avoid API key validation errors for other providers.
+        # - Disable autoupdate, sharing, LSP downloads, and terminal title for CI.
+        # - API key is NOT set in config; instead we rely on env vars set in the Run step
+        #   (e.g., GOOGLE_GENERATIVE_AI_API_KEY, ANTHROPIC_API_KEY, etc.) which the AI SDK
+        #   providers auto-discover at runtime.
+        CONFIG_JSON=$(jq -n \
+          --arg model "$AGENT_MODEL" \
+          --arg provider "$PROVIDER" \
+          '{
+            "$schema": "https://opencode.ai/config.json",
+            "model": $model,
+            "autoupdate": false,
+            "share": "disabled",
+            "enabled_providers": [$provider]
+          }')
+
+        # Write multi-line env var to GITHUB_ENV
+        echo "OPENCODE_CONFIG_CONTENT<<OPENCODE_CONFIG_EOF" >> $GITHUB_ENV
+        echo "$CONFIG_JSON" >> $GITHUB_ENV
+        echo "OPENCODE_CONFIG_EOF" >> $GITHUB_ENV
+
+        echo "✅ OpenCode config prepared for provider '$PROVIDER'"
+        if [ "${{ inputs.debug }}" = "true" ]; then
+          echo "📄 Config content:"
+          echo "$CONFIG_JSON" | jq .
+        fi
+
+    - name: Run OpenCode
+      id: run-opencode
+      shell: bash
+      working-directory: ${{ inputs.working_directory }}
+      env:
+        # Primary key - for reference and potential future use
+        AGENT_API_KEY: ${{ inputs.agent_api_key }}
+        # Belt-and-suspenders: set all common provider env vars so auto-discovery works.
+        # Only the enabled_providers provider actually uses the key; others are never loaded.
+        ANTHROPIC_API_KEY: ${{ inputs.agent_api_key }}
+        OPENAI_API_KEY: ${{ inputs.agent_api_key }}
+        GOOGLE_API_KEY: ${{ inputs.agent_api_key }}
+        GOOGLE_GENERATIVE_AI_API_KEY: ${{ inputs.agent_api_key }}
+        GEMINI_API_KEY: ${{ inputs.agent_api_key }}
+        XAI_API_KEY: ${{ inputs.agent_api_key }}
+        DEEPSEEK_API_KEY: ${{ inputs.agent_api_key }}
+        GROQ_API_KEY: ${{ inputs.agent_api_key }}
+        FIREWORKS_API_KEY: ${{ inputs.agent_api_key }}
+        TOGETHER_AI_API_KEY: ${{ inputs.agent_api_key }}
+        OPENROUTER_API_KEY: ${{ inputs.agent_api_key }}
+        # CI-optimised OpenCode env vars
+        OPENCODE_DISABLE_AUTOUPDATE: 'true'
+        OPENCODE_DISABLE_LSP_DOWNLOAD: 'true'
+        OPENCODE_DISABLE_TERMINAL_TITLE: 'true'
+        # Inputs
+        DEBUG_MODE: ${{ inputs.debug }}
+        AGENT_MODEL: ${{ inputs.agent_model }}
+        OPENCODE_VERSION: ${{ inputs.opencode_version }}
+        PROMPT_INPUT: ${{ inputs.prompt }}
+        MAX_ATTEMPTS: ${{ inputs.max_attempts }}
+        EXPECTED_FILES_INPUT: ${{ inputs.expected_files }}
+      run: |
+        set -euo pipefail
+
+        # ───────────────────────────────────────────────────────────────────
+        # Build augmented prompt (same pattern as gemini-cli-runner)
+        # ───────────────────────────────────────────────────────────────────
+
+        SUMMARY_INSTRUCTION=$(cat <<'SUMMARY_EOF'
+
+        ═══════════════════════════════════════════════════════════════════════════════
+        MANDATORY FINAL STEP - DO NOT SKIP:
+        ═══════════════════════════════════════════════════════════════════════════════
+
+        After completing ALL tasks above, you MUST create a run summary file.
+        This is REQUIRED for workflow tracking and CANNOT be skipped.
+
+        FILE PATH (use absolute path): ${{ github.workspace }}/.ai-metadata/run-summary.json
+
+        REQUIREMENTS:
+        1. Use the write tool with the ABSOLUTE path shown above
+        2. Write valid JSON (no markdown fences, no extra text)
+        3. Include both "summary" and "sentences" fields
+        4. Use passive voice (e.g., "Tests were updated" not "I updated tests")
+        5. Be factual and specific about what was changed
+
+        JSON SCHEMA (copy this structure exactly):
+        {
+          "summary": "A single paragraph (2-3 sentences) describing the main goal, what was changed, and the outcome.",
+          "sentences": [
+            "First sentence: The primary objective or goal that was addressed.",
+            "Second sentence: Key files/changes made and the scale of modifications.",
+            "Third sentence: Current status, results, or recommended next steps."
+          ]
+        }
+
+        EXAMPLE OUTPUT:
+        {
+          "summary": "The GitHub Actions workflow was enhanced to improve error handling and metadata collection. Three workflow files were modified to add retry logic and better logging mechanisms. The changes enable more reliable CI/CD operations with comprehensive execution tracking.",
+          "sentences": [
+            "Enhanced error handling and metadata collection in GitHub Actions workflows.",
+            "Modified three workflow files with retry logic and improved logging mechanisms.",
+            "Improved CI/CD reliability with comprehensive execution tracking capabilities."
+          ]
+        }
+
+        ⚠️  CRITICAL: Create this file NOW before finishing.
+        ═══════════════════════════════════════════════════════════════════════════════
+        SUMMARY_EOF
+        )
+
+        # Log original prompt preview in step summary
+        if [[ -n "$PROMPT_INPUT" ]]; then
+          PROMPT_PREVIEW="${PROMPT_INPUT:0:500}"
+          {
+            echo "### Original Prompt";
+            echo;
+            echo '```';
+            echo "$PROMPT_PREVIEW";
+            if [ ${#PROMPT_INPUT} -gt 500 ]; then
+              echo "...(truncated)";
+            fi
+            echo '```';
+          } >> $GITHUB_STEP_SUMMARY
+        fi
+
+        # Absolute path rules prefix
+        ABS_PATH_PREFIX=$(cat <<'ABS_EOF'
+        IMPORTANT PATH RULES:
+        You MUST use absolute paths for any file write tool.
+        The workspace root is: ${{ github.workspace }}
+        When asked to write files to .ai-metadata/*, expand it to ${{ github.workspace }}/.ai-metadata/<filename>
+        Always prefer existing absolute paths shown in the repository listing.
+        Do not invent paths; verify before writing.
+
+        Other instructions:
+        - where references or IDs are used, preserve them. E.g., never say "a jira ticket was used". Always use the ticket's ID, e.g., SC-12345.
+        ABS_EOF
+        )
+
+        # Build expected files list
+        EXPECTED_FILES_LIST=""
+        if [ -n "$EXPECTED_FILES_INPUT" ] && [ "$EXPECTED_FILES_INPUT" != "null" ] && [ "$EXPECTED_FILES_INPUT" != "" ]; then
+          EXPECTED_FILES_LIST="As part of your run, you are expected to generate the following files:"$'\n'
+          while IFS= read -r file; do
+            EXPECTED_FILES_LIST="${EXPECTED_FILES_LIST}- ${{ github.workspace }}/.ai-metadata/${file}"$'\n'
+          done < <(echo "$EXPECTED_FILES_INPUT" | jq -r '.[]' 2>/dev/null || echo "")
+          EXPECTED_FILES_LIST="${EXPECTED_FILES_LIST}"$'\n'"These files MUST be created using the write tool with absolute paths."
+        fi
+
+        # JSON formatting rules for metadata files
+        JSON_FORMATTING_RULES=$(cat <<'JSON_EOF'
+
+        ═══════════════════════════════════════════════════════════════════════════════
+        CRITICAL JSON FORMATTING RULES FOR ALL .ai-metadata/*.json FILES:
+        ═══════════════════════════════════════════════════════════════════════════════
+
+        When creating ANY JSON file in .ai-metadata/, you MUST follow these rules:
+
+        1. THE ENTIRE JSON FILE MUST BE ON ONE LINE PER STRING VALUE
+           - Use \n (backslash-n) for newlines within strings
+        2. Properly escape ALL special characters in string values:
+           - Escape double quotes as \"
+           - Escape backslashes as \\
+           - Escape newlines as \n (NOT actual line breaks)
+        3. Test your JSON: Can this be parsed by JSON.parse() or jq?
+
+        ═══════════════════════════════════════════════════════════════════════════════
+        JSON_EOF
+        )
+
+        FULL_PROMPT="${ABS_PATH_PREFIX}
+
+        ${EXPECTED_FILES_LIST}
+
+        ${JSON_FORMATTING_RULES}
+
+        ${PROMPT_INPUT}
+
+        ${SUMMARY_INSTRUCTION}"
+
+        ATTEMPT=1
+        CHANGED=false
+
+        while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+          echo "=== OpenCode Attempt $ATTEMPT of $MAX_ATTEMPTS ==="
+          echo "Prompt length (original): ${#PROMPT_INPUT} characters"
+          echo "Augmented prompt length: ${#FULL_PROMPT} characters"
+
+          if [ "$DEBUG_MODE" = "true" ]; then
+            echo "Debug mode enabled - showing first 500 chars of prompt:"
+            echo "${PROMPT_INPUT:0:500}..."
+          fi
+
+          # Create temp files for capturing output
+          TEMP_STDOUT="$(mktemp)"
+          TEMP_STDERR="$(mktemp)"
+          TEMP_PROMPT="$(mktemp)"
+
+          function cleanup_temps {
+            rm -f "${TEMP_STDOUT}" "${TEMP_STDERR}" "${TEMP_PROMPT}"
+          }
+
+          # Write prompt to temp file
+          echo "$FULL_PROMPT" > "$TEMP_PROMPT"
+
+          # Create conversation history directory
+          mkdir -p conversation-history
+          CONVERSATION_LOG="conversation-history/opencode-conversation-attempt-${ATTEMPT}.log"
+
+          FAILED=false
+
+          # Build opencode run command flags
+          OPENCODE_FLAGS="--model $AGENT_MODEL"
+          if [ "$DEBUG_MODE" = "true" ]; then
+            OPENCODE_FLAGS="$OPENCODE_FLAGS --print-logs --log-level DEBUG"
+          fi
+
+          # Run OpenCode in non-interactive mode
+          # opencode run accepts the prompt as positional args; we pass it via command substitution
+          set +e
+          if [[ "${DEBUG_MODE}" = "true" ]]; then
+            echo "Running with debug output streaming..."
+            { opencode run $OPENCODE_FLAGS "$(cat "$TEMP_PROMPT")" 2> >(tee "${TEMP_STDERR}" >&2) | tee "${TEMP_STDOUT}" | tee "${CONVERSATION_LOG}"; } || FAILED=true
+          else
+            opencode run $OPENCODE_FLAGS "$(cat "$TEMP_PROMPT")" 2> "${TEMP_STDERR}" 1> >(tee "${TEMP_STDOUT}" "${CONVERSATION_LOG}") || FAILED=true
+          fi
+          set -e
+
+          OPENCODE_RESPONSE="$(cat "${TEMP_STDOUT}" 2>/dev/null || echo "")"
+          OPENCODE_ERRORS="$(cat "${TEMP_STDERR}" 2>/dev/null || echo "")"
+
+          if [[ "${FAILED}" = true ]]; then
+            echo "❌ OpenCode command failed on attempt $ATTEMPT"
+
+            if [[ -n "${OPENCODE_RESPONSE}" ]]; then
+              echo "📄 OpenCode Output:"
+              echo "${OPENCODE_RESPONSE}"
+            fi
+
+            if [[ -n "${OPENCODE_ERRORS}" ]]; then
+              echo "🔥 OpenCode Error Details:"
+              echo "${OPENCODE_ERRORS}"
+              LAST_LINE="$(echo "${OPENCODE_ERRORS}" | tail -n1)"
+              echo "::error title=OpenCode execution failed (attempt $ATTEMPT)::${LAST_LINE}"
+
+              # Look for OpenCode log files and copy to workspace for artifact upload
+              echo "🔍 Looking for OpenCode log files..."
+              mkdir -p error-reports
+
+              # Check common log locations
+              for log_dir in "./log" "$HOME/.local/share/opencode" "/tmp/opencode"; do
+                if [ -d "$log_dir" ]; then
+                  echo "📋 Found log directory: $log_dir"
+                  # Zip the directory for artifact upload
+                  ZIP_NAME="error-reports/opencode-logs-attempt-${ATTEMPT}-$(basename "$log_dir").zip"
+                  zip -r "$ZIP_NAME" "$log_dir" 2>/dev/null || true
+                  echo "📦 Zipped to: $ZIP_NAME"
+                fi
+              done
+            else
+              echo "::error title=OpenCode execution failed (attempt $ATTEMPT)::Unknown error - no error details captured"
+            fi
+
+            cleanup_temps
+
+            if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
+              echo "💥 All $MAX_ATTEMPTS attempts failed. Exiting."
+              exit 1
+            else
+              echo "Will retry on next attempt..."
+            fi
+          else
+            if [[ -n "${OPENCODE_RESPONSE}" ]]; then
+              echo "✅ OpenCode executed successfully"
+              if [ "$DEBUG_MODE" = "true" ]; then
+                echo "📄 OpenCode Response:"
+                echo "${OPENCODE_RESPONSE}"
+              fi
+            fi
+
+            if [[ -n "${OPENCODE_ERRORS}" ]]; then
+              echo "⚠️ OpenCode Messages:"
+              echo "${OPENCODE_ERRORS}"
+            fi
+
+            cleanup_temps
+          fi
+
+          git add .
+          if git diff --staged --quiet; then
+            echo "No changes detected after attempt $ATTEMPT"
+            if [ $ATTEMPT -lt $MAX_ATTEMPTS ]; then
+              echo "Retrying..."
+            fi
+          else
+            echo "Changes detected after attempt $ATTEMPT"
+            echo "📋 Files changed in this attempt:"
+            git diff --staged --name-only || true
+
+            if [ -d ".ai-metadata" ]; then
+              echo "📁 AI Metadata directory contents:"
+              ls -lah .ai-metadata/ || true
+            fi
+
+            CHANGED=true
+            break
+          fi
+          ATTEMPT=$((ATTEMPT + 1))
+        done
+
+        echo "attempts=$ATTEMPT" >> $GITHUB_OUTPUT
+        echo "changed=$CHANGED" >> $GITHUB_OUTPUT
+
+    - name: Process metadata files
+      if: steps.run-opencode.outputs.changed == 'true' || hashFiles('.ai-metadata/*.json') != ''
+      id: process-metadata
+      shell: bash
+      working-directory: ${{ inputs.working_directory }}
+      env:
+        EXPECTED_FILES_INPUT: ${{ inputs.expected_files }}
+      run: |
+        set -euo pipefail
+
+        METADATA="{}"
+
+        # Convert kebab-case filename to camelCase key
+        to_camel_case() {
+          local filename="$1"
+          local base="${filename%.json}"
+          base="${base%.md}"
+          echo "$base" | sed -E 's/-([a-z])/\U\1/g'
+        }
+
+        if [ ! -d ".ai-metadata" ]; then
+          echo "📁 The .ai-metadata directory does not exist!"
+          echo "::warning title=No Metadata Directory::The .ai-metadata directory was not created."
+          echo "metadata={}" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+
+        echo "📁 Processing metadata files..."
+
+        # Parse expected files
+        EXPECTED_FILES=()
+        if [ -n "$EXPECTED_FILES_INPUT" ] && [ "$EXPECTED_FILES_INPUT" != "null" ] && [ "$EXPECTED_FILES_INPUT" != "" ]; then
+          while IFS= read -r file; do
+            EXPECTED_FILES+=("$file")
+          done < <(echo "$EXPECTED_FILES_INPUT" | jq -r '.[]' 2>/dev/null || echo "")
+        fi
+
+        # Validate expected files exist
+        if [ ${#EXPECTED_FILES[@]} -gt 0 ]; then
+          echo "🔍 Validating expected metadata files..."
+          for expected_file in "${EXPECTED_FILES[@]}"; do
+            if [ -f ".ai-metadata/$expected_file" ]; then
+              echo "  ✅ Found expected file: $expected_file"
+            else
+              echo "  ⚠️ Expected file not found: $expected_file"
+              echo "::warning title=Missing Expected Metadata::Expected metadata file '$expected_file' was not created by the AI agent."
+            fi
+          done
+        fi
+
+        # Process all JSON and Markdown files in .ai-metadata/
+        for metadata_file in .ai-metadata/*.json .ai-metadata/*.md; do
+          [ -e "$metadata_file" ] || continue
+
+          filename=$(basename "$metadata_file")
+          [ "$filename" = ".gitkeep" ] && continue
+
+          echo "📄 Processing: $filename"
+          extension="${filename##*.}"
+
+          if [ "$extension" = "json" ]; then
+            if jq -e . "$metadata_file" >/dev/null 2>&1; then
+              camel_key=$(to_camel_case "$filename")
+
+              # Strip code fences if present
+              if grep -q '^```' "$metadata_file"; then
+                echo "  ⚠️ Detected code fences in $filename - stripping before parsing"
+              fi
+              TEMP_JSON=$(mktemp)
+              sed '/^```/d' "$metadata_file" | sed 's/\r$//' > "$TEMP_JSON"
+
+              METADATA=$(echo "$METADATA" | jq --arg key "$camel_key" --slurpfile content "$TEMP_JSON" '. + {($key): $content[0]}')
+              echo "  ✅ Added to metadata as '$camel_key' (JSON)"
+
+              if [ "$filename" = "run-summary.json" ]; then
+                SUMMARY_PARAGRAPH=$(jq -r '.summary // ""' "$TEMP_JSON")
+                if [ -n "$SUMMARY_PARAGRAPH" ]; then
+                  echo "### Agent Summary" >> $GITHUB_STEP_SUMMARY
+                  echo "$SUMMARY_PARAGRAPH" >> $GITHUB_STEP_SUMMARY
+                fi
+              fi
+              rm -f "$TEMP_JSON"
+            else
+              echo "  ⚠️ WARNING: $filename contains invalid JSON"
+              echo "::warning title=Invalid Metadata JSON::The file '$filename' exists but is not valid JSON."
+              echo "  JSON validation error:"
+              jq -e . "$metadata_file" 2>&1 || true
+              echo "  First 500 characters:"
+              head -c 500 "$metadata_file" || true
+            fi
+          elif [ "$extension" = "md" ]; then
+            camel_key=$(to_camel_case "$filename")
+            MARKDOWN_CONTENT=$(jq -Rs . "$metadata_file")
+            METADATA=$(echo "$METADATA" | jq --arg key "$camel_key" --argjson content "$MARKDOWN_CONTENT" '. + {($key): $content}')
+            echo "  ✅ Added to metadata as '$camel_key' (Markdown)"
+
+            if [ "$filename" = "run-summary.md" ]; then
+              echo "### Agent Summary" >> $GITHUB_STEP_SUMMARY
+              cat "$metadata_file" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+        done
+
+        echo "metadata<<EOF" >> $GITHUB_OUTPUT
+        echo "$METADATA" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: Set final outputs
+      id: set-outputs
+      shell: bash
+      env:
+        METADATA_JSON: ${{ steps.process-metadata.outputs.metadata }}
+        CHANGED_OUTPUT: ${{ steps.run-opencode.outputs.changed }}
+        ATTEMPTS_OUTPUT: ${{ steps.run-opencode.outputs.attempts }}
+      run: |
+        echo "changed=${CHANGED_OUTPUT}" >> $GITHUB_OUTPUT
+        echo "attempts=${ATTEMPTS_OUTPUT}" >> $GITHUB_OUTPUT
+
+        if [ -n "${METADATA_JSON}" ]; then
+          echo "metadata<<EOF" >> $GITHUB_OUTPUT
+          echo "${METADATA_JSON}" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+        else
+          echo "metadata={}" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Upload AI metadata files
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: ai-metadata-${{ github.run_id }}-${{ github.run_attempt }}
+        path: ${{ inputs.working_directory }}/.ai-metadata/
+        retention-days: 30
+        if-no-files-found: warn
+        include-hidden-files: true
+
+    - name: Upload conversation history
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: opencode-conversation-history-${{ github.run_id }}-${{ github.run_attempt }}
+        path: ${{ inputs.working_directory }}/conversation-history/
+        retention-days: 30
+        if-no-files-found: warn
+
+    - name: Upload error reports on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: opencode-error-reports-${{ github.run_id }}-${{ github.run_attempt }}
+        path: ${{ inputs.working_directory }}/error-reports/
+        retention-days: 30
+        if-no-files-found: ignore
+
+    - name: Cleanup temporary files
+      if: always()
+      shell: bash
+      working-directory: ${{ inputs.working_directory }}
+      run: |
+        echo "🧹 Cleaning up temporary directories..."
+        rm -rf .ai-metadata/ || true
+        rm -rf conversation-history/ || true
+        rm -rf error-reports/ || true
+        echo "✅ Cleanup complete"
+
+    - name: Set job duration output
+      id: set-job-duration
+      shell: bash
+      run: |
+        COMPOSITE_END_TIME=$(date +%s)
+        if [ -z "$COMPOSITE_START_TIME" ]; then
+          echo "::warning::COMPOSITE_START_TIME not set, cannot calculate job duration."
+          echo "job_duration_seconds=0" >> $GITHUB_OUTPUT
+        else
+          JOB_DURATION=$(( COMPOSITE_END_TIME - COMPOSITE_START_TIME ))
+          echo "job_duration_seconds=$JOB_DURATION" >> $GITHUB_OUTPUT
+        fi
+        if [ -n "$JOB_DURATION" ]; then
+          {
+            echo "Agentic duration: ${JOB_DURATION:-0}s";
+          } >> $GITHUB_STEP_SUMMARY
+        fi
