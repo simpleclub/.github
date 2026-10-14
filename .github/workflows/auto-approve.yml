@@ -13,10 +13,18 @@ jobs:
       pull-requests: write
     if: github.actor == 'renovate[bot]'
     steps:
-      - uses: hmarr/auto-approve-action@8f929096a962e83ccdfa8afcf855f39f12d4dac7
+      - name: Approve Renovate pull request
+        uses: actions/github-script@v8
+        env:
+          PULL_REQUEST_NUMBER: ${{ inputs.pull-request-number }}
         with:
-          pull-request-number: ${{ inputs.pull-request-number }}
-          review-message: 'Approving auto-generated PR'
+          script: |
+            await github.rest.pulls.createReview({
+              ...context.repo,
+              pull_number: Number(process.env.PULL_REQUEST_NUMBER),
+              event: 'APPROVE',
+              body: 'Approving auto-generated PR',
+            });
   auto-approve-release-please:
     runs-on: ubuntu-latest
     permissions:
@@ -24,22 +32,22 @@ jobs:
       contents: read
     if: github.actor == 'simpleclub-bot'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 2 # required to compare the two last commits for changes
       - name: Get release-please changed files
         id: changed-files
-        uses: tj-actions/changed-files@v45
+        uses: tj-actions/changed-files@24d32ffd492484c1d75e0c0b894501ddb9d30d62
         with:
           files: |
             .github/release-please-manifest.json
             **/package.json
             **/CHANGELOG.md
-      - uses: GrantBirki/git-diff-action@6679c6802dd361f930f603c0a967f0e9f074630b
+      - uses: GrantBirki/git-diff-action@b27608d18e6dd9b31b46ede56a93e045d3881a28 # v3.0.0
         id: git-diff-action
         with:
           json_diff_file_output: diff.json
-      - uses: actions/github-script@v7
+      - uses: actions/github-script@v8
         id: check-only-dependency-updates
         with:
           script: |
@@ -74,9 +82,17 @@ jobs:
             return checkOnlyThreeFilesChange && checkPackageJsonChanges && checkChangeLogChanges;
               
           result-encoding: string
-      - uses: hmarr/auto-approve-action@8f929096a962e83ccdfa8afcf855f39f12d4dac7
+      - name: Approve release-please pull request
+        uses: actions/github-script@v8
         # Only approve when the modified files have been changed
         if: steps.changed-files.outputs.only_changed == 'true' && steps.check-only-dependency-updates.outputs.result == 'true'
+        env:
+          PULL_REQUEST_NUMBER: ${{ inputs.pull-request-number }}
         with:
-          pull-request-number: ${{ inputs.pull-request-number }}
-          review-message: 'Approving auto-generated PR'
+          script: |
+            await github.rest.pulls.createReview({
+              ...context.repo,
+              pull_number: Number(process.env.PULL_REQUEST_NUMBER),
+              event: 'APPROVE',
+              body: 'Approving auto-generated PR',
+            });
