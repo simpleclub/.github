@@ -1,0 +1,17 @@
+{
+  "action": "opened",
+  "number": 1,
+  "pull_request": {
+    "title": "feat(learning-activity): SC-12345-description-of-changes",
+    "body": "Test PR for acting locally",
+    "head": {
+      "ref": "D/conventional-commit-lint-workflow"
+    },
+    "base": {
+      "ref": "main"
+    }
+  },
+  "repository": {
+    "full_name": "simpleclub/.github"
+  }
+}
